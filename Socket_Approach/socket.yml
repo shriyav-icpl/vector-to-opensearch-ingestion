@@ -1,0 +1,40 @@
+sources:
+  socket_source:
+    type: socket
+    address: ${SOCKET_ENDPOINT} #Replace with your Socket endpoint like (0.0.0.0:XXXX)
+    mode: tcp
+    encoding:
+      codec: json
+
+transforms:
+  parse_and_add_timestamp:
+    type: remap
+    inputs:
+      - socket_source
+    source: |
+      structured, err = parse_json(.message)
+      if err == null {
+        .timestamp = structured.timestamp
+        .level = structured.level
+        .message = structured.message
+      }
+      .received_at = now()
+
+sinks:
+  opensearch_sink:
+    type: elasticsearch
+    inputs:
+      - parse_and_add_timestamp
+    endpoints:
+      - "${OPENSEARCH_ENDPOINT}"   # Replace with your OpenSearch endpoint
+    auth:
+      strategy: basic
+      user: "${OPENSEARCH_USER}"      # Replace with your OpenSearch username
+      password: "${OPENSEARCH_PASS}"  # Replace with your OpenSearch password
+    tls:
+      verify_certificate: false
+    mode: "bulk"
+    bulk:
+      index: "socket_logs-%Y.%m.%d"
+    compression: none
+    suppress_type_name: true

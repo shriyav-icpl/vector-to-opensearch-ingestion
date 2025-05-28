@@ -1,0 +1,42 @@
+sources:
+  file_source:
+    type: file
+    include:
+      - file_log_generatorfile.log
+    read_from: beginning
+    ignore_checkpoints: true
+
+transforms:
+  parse_and_add_timestamp:
+    type: remap
+    inputs:
+      - file_source
+    source: |
+      structured, err = parse_json(.message)
+      if err == null {
+        .timestamp = structured.timestamp
+        .level = structured.level
+        .message = structured.message
+      }
+      .received_at = now()
+
+sinks:
+  opensearch_sink:
+    type: elasticsearch
+    inputs:
+      - parse_and_add_timestamp
+    endpoints:
+      - "${OPENSEARCH_ENDPOINT}"   # Replace with your OpenSearch endpoint"
+    auth:
+      strategy: basic
+      user: "${OPENSEARCH_USER}"      # Replace with your OpenSearch username
+      password: "${OPENSEARCH_PASS}"  # Replace with your OpenSearch password
+    tls:
+      verify_certificate: false
+    mode: "bulk"
+    bulk:
+      index: "file_logs-%Y.%m.%d"
+    compression: none
+    suppress_type_name: true
+
+ 
